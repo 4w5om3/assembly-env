@@ -1,0 +1,33 @@
+# Debug files
+*.exe
+*.obj
+*.o
+*.out
+*.lst
+
+# Debugged files without extension
+*
+!*.*
+!*/
+*.o
+
+# VSCode specific files
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# MASM/TASM specific
+*.map
+*.tr
+*.cod
+*.crf
+
+# Backup files
+*.bak
+*~
+
+# Operating System files
+.DS_Store
+Thumbs.db 
