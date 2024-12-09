@@ -65,10 +65,10 @@ Nếu bạn đã có sẵn môi trường (If you already have the environment s
      ```
 
 4. **Setup môi trường development**
-   - Trong WSL terminal:
+   - Clone repository và chuyển đến project directory:
      ```bash
-     mkdir assembly
-     cd assembly
+     git clone https://github.com/4w5om3/assembly-env.git
+     cd assembly-env
      code .
      ```
 
@@ -126,10 +126,10 @@ Nếu bạn đã có sẵn môi trường (If you already have the environment s
 3. **Setup môi trường development**
    - Open VSCode
    - Open terminal trong VSCode (Ctrl + ` hoặc View -> Terminal)
-   - Create và navigate to project folder:
+   - Clone repository và chuyển đến project folder:
      ```bash
-     mkdir assembly
-     cd assembly
+     git clone https://github.com/4w5om3/assembly-env.git
+     cd assembly-env
      code .
      ```
 
@@ -170,18 +170,13 @@ code filename    # Open file in VSCode
 
 ## Kiểm tra môi trường (Testing Environment)
 
-1. Clone repository:
-   ```bash
-   git clone https://github.com/4w5om3/assembly-env.git
-   ```
-
-2. View available make commands:
+1. View available make commands:
    ```bash
    make help
    ```
    Command này sẽ show tất cả các lệnh có sẵn và cách sử dụng.
 
-3. Run test program:
+2. Run test program:
    ```bash
    make run FILE=div1
    ```
@@ -191,7 +186,7 @@ code filename    # Open file in VSCode
    The remainder is 1
    ```
 
-4. Cleanup:
+3. Cleanup:
    ```bash
    make clean
    ```

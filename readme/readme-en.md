@@ -64,10 +64,10 @@ If you already have the environment set up:
      ```
 
 4. **Setup Development Environment**
-   - In the WSL terminal:
+   - Clone the repository and navigate to the project directory:
      ```bash
-     mkdir assembly
-     cd assembly
+     git clone https://github.com/4w5om3/assembly-env.git
+     cd assembly-env
      code .
      ```
 
@@ -125,10 +125,10 @@ If you already have the environment set up:
 3. **Setup Development Environment**
    - Open VSCode
    - Open terminal in VSCode (Ctrl + ` or View -> Terminal)
-   - Create and navigate to project directory:
+   - Clone the repository and navigate to the project directory:
      ```bash
-     mkdir assembly
-     cd assembly
+     git clone https://github.com/4w5om3/assembly-env.git
+     cd assembly-env
      code .
      ```
 
@@ -169,18 +169,13 @@ code filename     # Open file in VSCode
 
 ## Testing Your Environment
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/4w5om3/assembly-env.git
-   ```
-
-2. View available make commands:
+1. View available make commands:
    ```bash
    make help
    ```
    This will show you all available commands and their usage.
 
-3. Run the test program:
+2. Run the test program:
    ```bash
    make run FILE=div1
    ```
@@ -190,7 +185,7 @@ code filename     # Open file in VSCode
    The remainder is 1
    ```
 
-4. Clean up:
+3. Clean up:
    ```bash
    make clean
    ```
