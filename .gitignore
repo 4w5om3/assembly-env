@@ -4,12 +4,14 @@
 *.o
 *.out
 *.lst
+*.err
 
 # Debugged files without extension
 *
 !*.*
 !*/
 *.o
+*.s
 
 # VSCode specific files
 .vscode/*

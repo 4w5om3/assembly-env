@@ -13,6 +13,10 @@ else
     HIDE = @
 endif
 
+# Error handling for make
+.DELETE_ON_ERROR:
+MAKEFLAGS += --no-builtin-rules --no-builtin-variables --silent
+
 # Find all .s files in current directory
 SRC = $(wildcard *.s)
 # Generate object file names from source files
@@ -32,6 +36,22 @@ help:
 	@echo "Options:"
 	@echo "  VERBOSE=1                 # Show all commands being executed"
 
+# Function to check file format
+define check_file_format
+	@if [ ! -z "$$(tail -c1 $(1))" ]; then \
+		echo "Error: $(1) is missing a newline at end of file"; \
+		exit 1; \
+	fi
+endef
+
+# Error handler function
+define handle_error
+	@if [ $$? -ne 0 ]; then \
+		echo "Error: $(1)"; \
+		exit 1; \
+	fi
+endef
+
 # Build single file
 build:
 	@if [ -z "$(FILE)" ]; then \
@@ -46,6 +66,7 @@ build:
 		echo "Error: $(FILE).s is empty"; \
 		exit 1; \
 	fi
+	$(call check_file_format,$(FILE).s)
 	@if ! grep -q "\.text" "$(FILE).s" || ! grep -q "_start\|main:" "$(FILE).s"; then \
 		echo "Error: $(FILE).s is missing basic assembly structure (.text section and entry point)"; \
 		exit 1; \
@@ -86,6 +107,7 @@ run: build
 # Build all files
 all: $(PROGS)
 	@echo "Built all files successfully"
+	$(call handle_error,"Failed to build all files")
 
 # Link rule with error handling
 %: %.o
@@ -98,6 +120,7 @@ all: $(PROGS)
 		exit 1; \
 	fi
 	$(HIDE)rm -f $@.err
+	$(call handle_error,"Failed to link $@")
 
 # Assemble rule with error handling
 %.o: %.s
@@ -105,6 +128,7 @@ all: $(PROGS)
 		echo "Error: $< is empty"; \
 		exit 1; \
 	fi
+	$(call check_file_format,$<)
 	@if ! grep -q "\.text" $< || ! grep -q "_start\|main:" $<; then \
 		echo "Error: $< is missing basic assembly structure (.text section and entry point)"; \
 		exit 1; \
@@ -118,15 +142,24 @@ all: $(PROGS)
 		exit 1; \
 	fi
 	$(HIDE)rm -f $@.err
+	$(call handle_error,"Failed to assemble $<")
 
 # Clean all generated files
 clean:
 	@echo "Cleaning up..."
 	$(HIDE)rm -f $(PROGS) $(OBJS) *.err
+	$(call handle_error,"Failed to clean files")
 
 # List all targets
 list:
 	@echo "Available files:"
 	@echo $(SRC) | tr ' ' '\n' | sed 's/\.s$$//'
+	$(call handle_error,"Failed to list files")
+
+# Catch-all for undefined targets
+%:
+	@echo "Error: Unknown target '$@'"
+	@echo "Use 'make help' to see available commands"
+	@exit 1
 
 .PHONY: all clean list help build run
