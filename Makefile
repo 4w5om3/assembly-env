@@ -3,7 +3,15 @@ AS = as
 LD = ld
 
 # Flags
+ASFLAGS = --fatal-warnings    # Treat warnings as errors
 LDFLAGS = -dynamic-linker /lib64/ld-linux-x86-64.so.2 -lc
+
+# Verbose mode (make VERBOSE=1)
+ifeq ($(VERBOSE),1)
+    HIDE =
+else
+    HIDE = @
+endif
 
 # Find all .s files in current directory
 SRC = $(wildcard *.s)
@@ -20,6 +28,9 @@ help:
 	@echo "  make all                  # Build all assembly files"
 	@echo "  make list                 # List all available files"
 	@echo "  make clean                # Remove all built files"
+	@echo ""
+	@echo "Options:"
+	@echo "  VERBOSE=1                 # Show all commands being executed"
 
 # Build single file
 build:
@@ -31,29 +42,87 @@ build:
 		echo "Error: $(FILE).s does not exist"; \
 		exit 1; \
 	fi
-	$(AS) -o $(FILE).o $(FILE).s
-	$(LD) $(LDFLAGS) -o $(FILE) $(FILE).o
+	@if [ ! -s "$(FILE).s" ]; then \
+		echo "Error: $(FILE).s is empty"; \
+		exit 1; \
+	fi
+	@if ! grep -q "\.text" "$(FILE).s" || ! grep -q "_start\|main:" "$(FILE).s"; then \
+		echo "Error: $(FILE).s is missing basic assembly structure (.text section and entry point)"; \
+		exit 1; \
+	fi
+	@echo "Assembling $(FILE).s..."
+	$(HIDE)$(AS) $(ASFLAGS) -o $(FILE).o $(FILE).s 2> $(FILE).err
+	@if [ -s $(FILE).err ]; then \
+		echo "Assembly errors in $(FILE).s:"; \
+		cat $(FILE).err; \
+		rm -f $(FILE).err; \
+		exit 1; \
+	fi
+	$(HIDE)rm -f $(FILE).err
+	@echo "Linking $(FILE).o..."
+	$(HIDE)$(LD) $(LDFLAGS) -o $(FILE) $(FILE).o 2> $(FILE).err
+	@if [ -s $(FILE).err ]; then \
+		echo "Linking errors in $(FILE):"; \
+		cat $(FILE).err; \
+		rm -f $(FILE).err; \
+		exit 1; \
+	fi
+	$(HIDE)rm -f $(FILE).err
 	@echo "Built $(FILE) successfully"
 
-# Run single file
+# Run single file with error handling
 run: build
 	@echo "Running $(FILE):"
-	@./$(FILE)
+	$(HIDE)timeout 10s ./$(FILE); \
+	EXIT_CODE=$$?; \
+	if [ $$EXIT_CODE -eq 124 ]; then \
+		echo "Error: Program timed out (exceeded 10 seconds)"; \
+		exit 1; \
+	elif [ $$EXIT_CODE -ne 0 ]; then \
+		echo "Error: Program terminated with exit code $$EXIT_CODE"; \
+		exit 1; \
+	fi
 
 # Build all files
 all: $(PROGS)
+	@echo "Built all files successfully"
 
-# Link rule
+# Link rule with error handling
 %: %.o
-	$(LD) $(LDFLAGS) -o $@ $<
+	@echo "Linking $@..."
+	$(HIDE)$(LD) $(LDFLAGS) -o $@ $< 2> $@.err
+	@if [ -s $@.err ]; then \
+		echo "Linking errors in $@:"; \
+		cat $@.err; \
+		rm -f $@.err; \
+		exit 1; \
+	fi
+	$(HIDE)rm -f $@.err
 
-# Assemble rule
+# Assemble rule with error handling
 %.o: %.s
-	$(AS) -o $@ $<
+	@if [ ! -s $< ]; then \
+		echo "Error: $< is empty"; \
+		exit 1; \
+	fi
+	@if ! grep -q "\.text" $< || ! grep -q "_start\|main:" $<; then \
+		echo "Error: $< is missing basic assembly structure (.text section and entry point)"; \
+		exit 1; \
+	fi
+	@echo "Assembling $<..."
+	$(HIDE)$(AS) $(ASFLAGS) -o $@ $< 2> $@.err
+	@if [ -s $@.err ]; then \
+		echo "Assembly errors in $<:"; \
+		cat $@.err; \
+		rm -f $@.err; \
+		exit 1; \
+	fi
+	$(HIDE)rm -f $@.err
 
 # Clean all generated files
 clean:
-	rm -f $(PROGS) $(OBJS)
+	@echo "Cleaning up..."
+	$(HIDE)rm -f $(PROGS) $(OBJS) *.err
 
 # List all targets
 list:

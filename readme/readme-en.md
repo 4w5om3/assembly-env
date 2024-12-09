@@ -60,7 +60,7 @@ If you already have the environment set up:
    - Install packages:
      ```bash
      sudo apt update && sudo apt upgrade
-     sudo apt install nasm binutils make git
+     sudo apt install nasm binutils make git gcc
      ```
 
 4. **Setup Development Environment**
@@ -107,19 +107,19 @@ If you already have the environment set up:
    #### Ubuntu/Debian/Linux Mint
    ```bash
    sudo apt update && sudo apt upgrade
-   sudo apt install nasm binutils make git
+   sudo apt install nasm binutils make git gcc
    ```
 
    #### Arch Linux
    ```bash
    sudo pacman -Syy && sudo pacman -Syyu
-   sudo pacman -S nasm binutils make git
+   sudo pacman -S nasm binutils make git gcc
    ```
 
    #### Fedora
    ```bash
    sudo dnf update && sudo dnf upgrade
-   sudo dnf install nasm binutils make git
+   sudo dnf install nasm binutils make git gcc
    ```
 
 3. **Setup Development Environment**
