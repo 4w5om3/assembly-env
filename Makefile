@@ -1,165 +1,146 @@
 # Compiler and linker settings
-AS = as
+GAS = as
+NASM = nasm
 LD = ld
 
 # Flags
-ASFLAGS = --fatal-warnings    # Treat warnings as errors
-LDFLAGS = -dynamic-linker /lib64/ld-linux-x86-64.so.2 -lc
+GAS_FLAGS = --fatal-warnings
+NASM_FLAGS_32 = -f elf32
+NASM_FLAGS_64 = -f elf64
 
-# Verbose mode (make VERBOSE=1)
-ifeq ($(VERBOSE),1)
-    HIDE =
-else
-    HIDE = @
-endif
+# Linker flags
+GAS_LDFLAGS = -dynamic-linker /lib64/ld-linux-x86-64.so.2 -lc
+NASM_LDFLAGS_32 = -m elf_i386 -dynamic-linker /lib/ld-linux.so.2 -lc
+NASM_LDFLAGS_64 = -m elf_x86_64 -dynamic-linker /lib64/ld-linux-x86-64.so.2 -lc
 
-# Error handling for make
-.DELETE_ON_ERROR:
-MAKEFLAGS += --no-builtin-rules --no-builtin-variables --silent
+# Source and target files
+GAS_SRC := $(wildcard *.s)
+NASM_SRC := $(wildcard *.asm)
+GAS_OBJS := $(GAS_SRC:.s=.o)
+NASM_OBJS := $(NASM_SRC:.asm=.o)
+PROGS := $(GAS_SRC:.s=) $(NASM_SRC:.asm=)
 
-# Find all .s files in current directory
-SRC = $(wildcard *.s)
-# Generate object file names from source files
-OBJS = $(SRC:.s=.o)
-# Generate executable names from source files
-PROGS = $(SRC:.s=)
+# Default target
+.DEFAULT_GOAL := help
 
-# Default target shows help
-help:
-	@echo "Usage:"
-	@echo "  make build FILE=filename  # Build single file (without .s extension)"
-	@echo "  make run FILE=filename    # Build and run file (without .s extension)"
-	@echo "  make all                  # Build all assembly files"
-	@echo "  make list                 # List all available files"
-	@echo "  make clean                # Remove all built files"
-	@echo ""
-	@echo "Options:"
-	@echo "  VERBOSE=1                 # Show all commands being executed"
-
-# Function to check file format
-define check_file_format
-	@if [ ! -z "$$(tail -c1 $(1))" ]; then \
-		echo "Error: $(1) is missing a newline at end of file"; \
+# Function to detect bit mode
+define detect_gas_mode
+	if grep -q "int.*\$$0x80" "$(1)"; then \
+		echo "32"; \
+	elif grep -q "mov.*%r.*syscall\|syscall.*mov.*%r" "$(1)"; then \
+		echo "64"; \
+	elif grep -q "syscall" "$(1)"; then \
+		echo "Error: 64-bit program must use syscall with 64-bit registers" >&2; \
 		exit 1; \
+	else \
+		echo "32"; \
 	fi
 endef
 
-# Error handler function
-define handle_error
-	@if [ $$? -ne 0 ]; then \
-		echo "Error: $(1)"; \
-		exit 1; \
+define detect_nasm_mode
+	if grep -q "mov.*rax.*60\|mov.*eax.*60.*syscall" "$(1)"; then \
+		echo "64"; \
+	elif grep -q "bits\s\+64\|section\s\+\.text\s\+64" "$(1)"; then \
+		if ! grep -q "mov.*rax.*60\|mov.*eax.*60.*syscall" "$(1)"; then \
+			echo "Error: 64-bit program must use syscall 60 for exit" >&2; \
+			exit 1; \
+		fi; \
+		echo "64"; \
+	elif grep -q "mov.*eax.*1.*int" "$(1)"; then \
+		echo "32"; \
+	else \
+		echo "32"; \
 	fi
+endef
+
+# Build functions
+define build_gas
+	mode=$$($(call detect_gas_mode,$(1))); \
+	echo "Building $(1) (GAS/AT&T syntax, $$mode-bit)..."; \
+	$(GAS) $(GAS_FLAGS) -o $(2).o $(1) && \
+	$(LD) $(GAS_LDFLAGS) -o $(2) $(2).o && \
+	echo "Build successful: $(2)"
+endef
+
+define build_nasm
+	mode=$$($(call detect_nasm_mode,$(1))); \
+	echo "Building $(1) (NASM/Intel syntax, $$mode-bit)..."; \
+	if [ "$$mode" = "64" ]; then \
+		$(NASM) $(NASM_FLAGS_64) -o $(2).o $(1) && \
+		$(LD) $(NASM_LDFLAGS_64) -o $(2) $(2).o; \
+	else \
+		$(NASM) $(NASM_FLAGS_32) -o $(2).o $(1) && \
+		$(LD) $(NASM_LDFLAGS_32) -o $(2) $(2).o; \
+	fi && \
+	echo "Build successful: $(2)"
 endef
 
 # Build single file
-build:
+b build:
 	@if [ -z "$(FILE)" ]; then \
-		echo "Error: Please specify FILE=filename (without .s)"; \
+		echo "Error: Specify FILE=name"; \
 		exit 1; \
 	fi
-	@if [ ! -f "$(FILE).s" ]; then \
-		echo "Error: $(FILE).s does not exist"; \
+	@if [ -f "$(FILE).s" ]; then \
+		$(call build_gas,$(FILE).s,$(FILE)); \
+	elif [ -f "$(FILE).asm" ]; then \
+		$(call build_nasm,$(FILE).asm,$(FILE)); \
+	else \
+		echo "Error: $(FILE).s or $(FILE).asm not found"; \
 		exit 1; \
 	fi
-	@if [ ! -s "$(FILE).s" ]; then \
-		echo "Error: $(FILE).s is empty"; \
-		exit 1; \
-	fi
-	$(call check_file_format,$(FILE).s)
-	@if ! grep -q "\.text" "$(FILE).s" || ! grep -q "_start\|main:" "$(FILE).s"; then \
-		echo "Error: $(FILE).s is missing basic assembly structure (.text section and entry point)"; \
-		exit 1; \
-	fi
-	@echo "Assembling $(FILE).s..."
-	$(HIDE)$(AS) $(ASFLAGS) -o $(FILE).o $(FILE).s 2> $(FILE).err
-	@if [ -s $(FILE).err ]; then \
-		echo "Assembly errors in $(FILE).s:"; \
-		cat $(FILE).err; \
-		rm -f $(FILE).err; \
-		exit 1; \
-	fi
-	$(HIDE)rm -f $(FILE).err
-	@echo "Linking $(FILE).o..."
-	$(HIDE)$(LD) $(LDFLAGS) -o $(FILE) $(FILE).o 2> $(FILE).err
-	@if [ -s $(FILE).err ]; then \
-		echo "Linking errors in $(FILE):"; \
-		cat $(FILE).err; \
-		rm -f $(FILE).err; \
-		exit 1; \
-	fi
-	$(HIDE)rm -f $(FILE).err
-	@echo "Built $(FILE) successfully"
 
-# Run single file with error handling
-run: build
-	@echo "Running $(FILE):"
-	$(HIDE)timeout 10s ./$(FILE); \
-	EXIT_CODE=$$?; \
-	if [ $$EXIT_CODE -eq 124 ]; then \
-		echo "Error: Program timed out (exceeded 10 seconds)"; \
-		exit 1; \
-	elif [ $$EXIT_CODE -ne 0 ]; then \
-		echo "Error: Program terminated with exit code $$EXIT_CODE"; \
+# Default help
+h help:
+	@echo "Assembly Build System"
+	@echo "Basic Commands:"
+	@echo "  make b FILE=name        Build .s or .asm file"
+	@echo "  make r FILE=name        Build and run program"
+	@echo "  make a                  Build everything"
+	@echo "  make c                  Clean build files"
+	@echo "  make l                  Show available files"
+	@echo ""
+	@echo "File Types:"
+	@echo "  .s    GAS/AT&T syntax (32/64 bit auto-detect)"
+	@echo "  .asm  NASM/Intel syntax (32/64 bit by directive)"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make b FILE=hello       Build hello.s or hello.asm"
+	@echo "  make r FILE=test        Run test program"
+
+# Run program
+r run: build
+	@echo "Running $(FILE)..."
+	@echo ""
+	@timeout 10s ./$(FILE) || \
+	if [ $$? -eq 124 ]; then \
+		echo "Error: Timeout (10s)"; \
 		exit 1; \
 	fi
 
 # Build all files
-all: $(PROGS)
-	@echo "Built all files successfully"
-	$(call handle_error,"Failed to build all files")
-
-# Link rule with error handling
-%: %.o
-	@echo "Linking $@..."
-	$(HIDE)$(LD) $(LDFLAGS) -o $@ $< 2> $@.err
-	@if [ -s $@.err ]; then \
-		echo "Linking errors in $@:"; \
-		cat $@.err; \
-		rm -f $@.err; \
-		exit 1; \
+a all:
+	@for file in $(GAS_SRC); do \
+		base=$${file%.*}; \
+		$(call build_gas,$$file,$$base); \
+	done
+	@for file in $(NASM_SRC); do \
+		base=$${file%.*}; \
+		$(call build_nasm,$$file,$$base); \
+	done
+	@if [ -n "$(GAS_SRC)$(NASM_SRC)" ]; then \
+		echo "All builds completed successfully"; \
+	else \
+		echo "No assembly files found"; \
 	fi
-	$(HIDE)rm -f $@.err
-	$(call handle_error,"Failed to link $@")
 
-# Assemble rule with error handling
-%.o: %.s
-	@if [ ! -s $< ]; then \
-		echo "Error: $< is empty"; \
-		exit 1; \
-	fi
-	$(call check_file_format,$<)
-	@if ! grep -q "\.text" $< || ! grep -q "_start\|main:" $<; then \
-		echo "Error: $< is missing basic assembly structure (.text section and entry point)"; \
-		exit 1; \
-	fi
-	@echo "Assembling $<..."
-	$(HIDE)$(AS) $(ASFLAGS) -o $@ $< 2> $@.err
-	@if [ -s $@.err ]; then \
-		echo "Assembly errors in $<:"; \
-		cat $@.err; \
-		rm -f $@.err; \
-		exit 1; \
-	fi
-	$(HIDE)rm -f $@.err
-	$(call handle_error,"Failed to assemble $<")
+# Utility targets
+c clean:
+	@rm -f $(PROGS) $(GAS_OBJS) $(NASM_OBJS)
+	@echo "Cleaned all build files"
 
-# Clean all generated files
-clean:
-	@echo "Cleaning up..."
-	$(HIDE)rm -f $(PROGS) $(OBJS) *.err
-	$(call handle_error,"Failed to clean files")
+l list:
+	@echo "GAS files (.s):" && echo "$(GAS_SRC)"
+	@echo "NASM files (.asm):" && echo "$(NASM_SRC)"
 
-# List all targets
-list:
-	@echo "Available files:"
-	@echo $(SRC) | tr ' ' '\n' | sed 's/\.s$$//'
-	$(call handle_error,"Failed to list files")
-
-# Catch-all for undefined targets
-%:
-	@echo "Error: Unknown target '$@'"
-	@echo "Use 'make help' to see available commands"
-	@exit 1
-
-.PHONY: all clean list help build run
+.PHONY: a all c clean l list h help b build r run
