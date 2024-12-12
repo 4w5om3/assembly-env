@@ -171,23 +171,27 @@ code filename     # Open file in VSCode
 
 1. View available make commands:
    ```bash
-   make help
+   make
+   ```
+   or
+
+   ```bash
+   make h
    ```
    This will show you all available commands and their usage.
 
 2. Run the test program:
    ```bash
-   make run FILE=div1
+   make r FILE=hello_gas32
    ```
    Expected output:
    ```
-   The quotient is 3
-   The remainder is 1
+   Hello, World!
    ```
 
 3. Clean up:
    ```bash
-   make clean
+   make c
    ```
 
 ## Common Issues

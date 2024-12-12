@@ -172,23 +172,27 @@ code filename    # Open file in VSCode
 
 1. View available make commands:
    ```bash
+   make
+   ```
+   or
+
+   ```bash
    make help
    ```
    Command này sẽ show tất cả các lệnh có sẵn và cách sử dụng.
 
 2. Run test program:
    ```bash
-   make run FILE=div1
+   make r FILE=hello_gas32
    ```
    Expected output:
    ```
-   The quotient is 3
-   The remainder is 1
+   Hello, World!
    ```
 
 3. Cleanup:
    ```bash
-   make clean
+   make c
    ```
 
 ## Các vấn đề thường gặp (Common Issues)
